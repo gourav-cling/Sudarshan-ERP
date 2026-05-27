@@ -19,6 +19,10 @@ import { DashHead, SectionH } from "./dashboards";
 /* ============================================================
    EMPLOYEES (HR master)
    ============================================================ */
+import { Table, Button as AntButton, Badge as AntBadge, Avatar as AntAvatar } from "antd";
+import { TeamOutlined, UserAddOutlined, ExportOutlined, WarningOutlined, RightOutlined, CalendarOutlined, DownloadOutlined, PlusOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, EnvironmentOutlined, ThunderboltOutlined, EyeOutlined, MailOutlined, FilterOutlined, AlertOutlined, MoneyCollectOutlined, FileTextOutlined, CheckOutlined, CloseOutlined } from "@ant-design/icons";
+
+
 const Employees = () => {
   const DATA = useDATA();
   const { append, saving, error, clearError } = useEntityMutation();
@@ -40,18 +44,46 @@ const Employees = () => {
     empForm.reset({ name: "", role: "", dept: "Operations", since: String(new Date().getFullYear()) });
   };
 
+  const columns = [
+    { title: "Emp ID", dataIndex: "id", key: "id", render: (text) => <span className="mono strong">{text}</span> },
+    { title: "Name", dataIndex: "name", key: "name", render: (text, record, i) => (
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <AntAvatar style={{ backgroundColor: ["#f56a00", "#7265e6", "#ffbf00", "#00a2ae"][i % 4] }}>{text.charAt(0)}</AntAvatar>
+        <div className="strong">{text}</div>
+      </div>
+    )},
+    { title: "Role", dataIndex: "role", key: "role" },
+    { title: "Department", dataIndex: "dept", key: "dept", render: (text) => <span className="muted">{text}</span> },
+    { title: "Joined", dataIndex: "since", key: "since", render: (text) => <span className="muted">{text}</span> },
+    { title: "Reporting to", key: "reporting", render: (_, __, i) => <span className="muted">{i === 0 ? "—" : i < 3 ? "Rajiv Mehta" : "Priya Sharma"}</span> },
+    { title: "Status", key: "status", render: () => <AntBadge status="success" text="Active" /> },
+    { title: "", key: "action", render: () => <AntButton type="link" size="small" icon={<RightOutlined />}>View</AntButton> },
+  ];
+
   return (
     <>
       <DashHead title="Employees" sub="HR master across both companies">
-        <Btn size="sm" icon="upload">Import</Btn>
-        <Btn variant="primary" size="sm" icon="plus" onClick={() => setOpen(true)}>Add employee</Btn>
+        <AntButton size="small" icon={<ExportOutlined />}>Import</AntButton>
+        <AntButton type="primary" size="small" icon={<UserAddOutlined />} onClick={() => setOpen(true)}>Add employee</AntButton>
       </DashHead>
 
       <div className="grid grid-4" style={{ marginBottom: 20 }}>
-        <div className="kpi"><div className="kpi-label"><Icon name="users" size={13} className="ico" />Total headcount</div><div className="kpi-value tabular">{DATA.EMPLOYEES.length}</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>From database</div></div>
-        <div className="kpi"><div className="kpi-label"><Icon name="plus" size={13} className="ico" />New hires (MTD)</div><div className="kpi-value tabular">4</div><div style={{ fontSize: 11, color: "var(--success)" }}>2 onboarding</div></div>
-        <div className="kpi"><div className="kpi-label"><Icon name="logout" size={13} className="ico" />Exits (MTD)</div><div className="kpi-value tabular">1</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>0.3% attrition</div></div>
-        <div className="kpi"><div className="kpi-label"><Icon name="alert" size={13} className="ico" />Pending actions</div><div className="kpi-value" style={{ color: "var(--warning)" }}>6</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>3 approvals + 3 docs</div></div>
+        <div className="kpi" style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <div><div className="kpi-label"><TeamOutlined style={{ marginRight: 6 }} />Total headcount</div><div style={{ fontSize: 11, color: "var(--fg-muted)", marginTop: 4 }}>From database</div></div>
+          <div className="kpi-value tabular">{DATA.EMPLOYEES.length}</div>
+        </div>
+        <div className="kpi" style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <div><div className="kpi-label"><UserAddOutlined style={{ marginRight: 6 }} />New hires (MTD)</div><div style={{ fontSize: 11, color: "var(--success)", marginTop: 4 }}>2 onboarding</div></div>
+          <div className="kpi-value tabular">4</div>
+        </div>
+        <div className="kpi" style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <div><div className="kpi-label"><ExportOutlined style={{ marginRight: 6 }} />Exits (MTD)</div><div style={{ fontSize: 11, color: "var(--fg-muted)", marginTop: 4 }}>0.3% attrition</div></div>
+          <div className="kpi-value tabular">1</div>
+        </div>
+        <div className="kpi" style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <div><div className="kpi-label"><WarningOutlined style={{ marginRight: 6 }} />Pending actions</div><div style={{ fontSize: 11, color: "var(--fg-muted)", marginTop: 4 }}>3 approvals + 3 docs</div></div>
+          <div className="kpi-value tabular" style={{ color: "var(--warning)" }}>6</div>
+        </div>
       </div>
 
       <div className="card">
@@ -67,26 +99,8 @@ const Employees = () => {
             <input className="input" placeholder="Search employee…" style={{ height: 30, width: 200 }} />
           </div>
         </div>
-        <div style={{ overflowX: "auto" }}>
-          <table className="tbl">
-            <thead>
-              <tr><th>Emp ID</th><th>Name</th><th>Role</th><th>Department</th><th>Joined</th><th>Reporting to</th><th>Status</th><th></th></tr>
-            </thead>
-            <tbody>
-              {DATA.EMPLOYEES.map((e, i) => (
-                <tr key={e.id}>
-                  <td className="mono strong">{e.id}</td>
-                  <td><div style={{ display: "flex", alignItems: "center", gap: 10 }}><Avatar name={e.name} color={(i % 5) + 1} /><div className="strong">{e.name}</div></div></td>
-                  <td>{e.role}</td>
-                  <td className="muted">{e.dept}</td>
-                  <td className="muted">{e.since}</td>
-                  <td className="muted">{i === 0 ? "—" : i < 3 ? "Rajiv Mehta" : "Priya Sharma"}</td>
-                  <td><Badge tone="success" dot>Active</Badge></td>
-                  <td><Btn variant="ghost" size="sm" iconRight="chevRight">View</Btn></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div style={{ padding: 16 }}>
+          <Table dataSource={DATA.EMPLOYEES} columns={columns} pagination={false} rowKey="id" />
         </div>
       </div>
 
@@ -127,26 +141,65 @@ const Attendance = () => {
     setLeaveReason("");
   };
 
+  const columns = [
+    { title: "Emp ID", dataIndex: "id", key: "id", render: (text) => <span className="mono strong">{text}</span> },
+    { title: "Name", dataIndex: "name", key: "name", render: (text, record, i) => (
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <AntAvatar style={{ backgroundColor: ["#f56a00", "#7265e6", "#ffbf00", "#00a2ae"][i % 4] }}>{text.charAt(0)}</AntAvatar>
+        {text}
+      </div>
+    )},
+    { title: "Department", dataIndex: "dept", key: "dept", render: (text) => <span className="muted">{text}</span> },
+    { title: "Check-in", dataIndex: "in_", key: "in_", render: (text) => <span className="mono">{text}</span> },
+    { title: "Check-out", dataIndex: "out", key: "out", render: (text) => <span className="mono subtle">{text}</span> },
+    { title: "Worked", dataIndex: "w", key: "w", render: (text) => <span className="mono">{text}</span> },
+    { title: "Late by", dataIndex: "late", key: "late", render: (text, record) => (
+      <span className={record.late_ ? "mono" : "mono subtle"} style={{ color: record.late_ ? "var(--warning)" : undefined, fontWeight: record.late_ ? 600 : 400 }}>{text}</span>
+    )},
+    { title: "Status", dataIndex: "st", key: "st", render: (st) => (
+      st === "active" ? <AntBadge status="success" text="Present" /> :
+      st === "leave"  ? <AntBadge status="processing" text="On leave" /> :
+      st === "field"  ? <AntBadge status="default" text="Field" /> :
+      <AntBadge status="error" text="Absent" />
+    )},
+  ];
+
+  const dataSource = DATA.EMPLOYEES.map((e, i) => {
+    const states = [
+      { in_: "08:54", out: "—",     w: "ongoing", late: "—",  st: "active",  late_: false },
+      { in_: "09:02", out: "—",     w: "ongoing", late: "—",  st: "active",  late_: false },
+      { in_: "09:18", out: "—",     w: "ongoing", late: "18 m", st: "active", late_: true },
+      { in_: "—",     out: "—",     w: "—",      late: "—",   st: "leave",   late_: false },
+      { in_: "09:00", out: "—",     w: "ongoing", late: "—",  st: "active",  late_: false },
+      { in_: "09:32", out: "—",     w: "ongoing", late: "32 m", st: "active", late_: true },
+      { in_: "08:48", out: "—",     w: "ongoing", late: "—",  st: "active",  late_: false },
+      { in_: "09:04", out: "—",     w: "ongoing", late: "—",  st: "active",  late_: false },
+      { in_: "09:10", out: "—",     w: "ongoing", late: "10 m", st: "field",  late_: false },
+      { in_: "—",     out: "—",     w: "—",      late: "—",   st: "absent",  late_: false },
+    ];
+    return { ...e, ...states[i % states.length] };
+  });
+
   return (
     <>
       <DashHead title="Attendance" sub="Daily attendance, late-coming, early-going">
-        <Btn size="sm" icon="calendar">May 2026</Btn>
-        <Btn size="sm" icon="download">Export sheet</Btn>
-        <Btn variant="primary" size="sm" icon="plus" onClick={() => setApplyLeave(true)}>Apply leave</Btn>
+        <AntButton size="small" icon={<CalendarOutlined />}>May 2026</AntButton>
+        <AntButton size="small" icon={<DownloadOutlined />}>Export sheet</AntButton>
+        <AntButton type="primary" size="small" icon={<PlusOutlined />} onClick={() => setApplyLeave(true)}>Apply leave</AntButton>
       </DashHead>
 
       <div className="grid grid-5" style={{ marginBottom: 20 }}>
-        <div className="kpi"><div className="kpi-label"><Icon name="check" size={13} className="ico" />Present today</div><div className="kpi-value tabular" style={{ color: "var(--success)" }}>{DATA.ATTENDANCE_TODAY.present}</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>{Math.round(DATA.ATTENDANCE_TODAY.present / DATA.ATTENDANCE_TODAY.total * 100)}% attendance</div></div>
-        <div className="kpi"><div className="kpi-label"><Icon name="clock" size={13} className="ico" />Late comers</div><div className="kpi-value tabular" style={{ color: "var(--warning)" }}>{DATA.ATTENDANCE_TODAY.late}</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>3.9%</div></div>
-        <div className="kpi"><div className="kpi-label"><Icon name="calendar" size={13} className="ico" />On leave</div><div className="kpi-value tabular">{DATA.ATTENDANCE_TODAY.leave}</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>11 sick · 7 planned</div></div>
-        <div className="kpi"><div className="kpi-label"><Icon name="x" size={13} className="ico" />Absent</div><div className="kpi-value tabular" style={{ color: "var(--danger)" }}>{DATA.ATTENDANCE_TODAY.absent}</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>Unscheduled</div></div>
-        <div className="kpi"><div className="kpi-label"><Icon name="pin" size={13} className="ico" />On field</div><div className="kpi-value tabular">{DATA.ATTENDANCE_TODAY.onField}</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>Sales reps</div></div>
+        <div className="kpi"><div className="kpi-label"><CheckCircleOutlined style={{ marginRight: 6 }} />Present today</div><div className="kpi-value tabular" style={{ color: "var(--success)" }}>{DATA.ATTENDANCE_TODAY.present}</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>{Math.round(DATA.ATTENDANCE_TODAY.present / DATA.ATTENDANCE_TODAY.total * 100)}% attendance</div></div>
+        <div className="kpi"><div className="kpi-label"><ClockCircleOutlined style={{ marginRight: 6 }} />Late comers</div><div className="kpi-value tabular" style={{ color: "var(--warning)" }}>{DATA.ATTENDANCE_TODAY.late}</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>3.9%</div></div>
+        <div className="kpi"><div className="kpi-label"><CalendarOutlined style={{ marginRight: 6 }} />On leave</div><div className="kpi-value tabular">{DATA.ATTENDANCE_TODAY.leave}</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>11 sick · 7 planned</div></div>
+        <div className="kpi"><div className="kpi-label"><CloseCircleOutlined style={{ marginRight: 6 }} />Absent</div><div className="kpi-value tabular" style={{ color: "var(--danger)" }}>{DATA.ATTENDANCE_TODAY.absent}</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>Unscheduled</div></div>
+        <div className="kpi"><div className="kpi-label"><EnvironmentOutlined style={{ marginRight: 6 }} />On field</div><div className="kpi-value tabular">{DATA.ATTENDANCE_TODAY.onField}</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>Sales reps</div></div>
       </div>
 
       <div className="grid" style={{ gridTemplateColumns: "2fr 1fr", marginBottom: 20 }}>
         <div className="card">
           <div className="card-head">
-            <div className="card-title"><Icon name="chart" size={14} /> Attendance · last 14 days</div>
+            <div className="card-title"><CalendarOutlined style={{ marginRight: 6 }} /> Attendance · last 14 days</div>
           </div>
           <div className="card-body">
             <BarChart
@@ -171,7 +224,7 @@ const Attendance = () => {
         </div>
 
         <div className="card">
-          <div className="card-head"><div className="card-title"><Icon name="calendar" size={14} /> Leave approval queue</div><Badge tone="warning">5 pending</Badge></div>
+          <div className="card-head"><div className="card-title"><CalendarOutlined style={{ marginRight: 6 }} /> Leave approval queue</div><AntBadge count="5 pending" style={{ backgroundColor: "#faad14" }} /></div>
           <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {[
               { who: "Vinod Sharma",  type: "Sick",    days: "3 d", from: "May 22", color: 3 },
@@ -181,13 +234,13 @@ const Attendance = () => {
               { who: "Suresh Patel",  type: "Sick",    days: "1 d", from: "May 23", color: 1 },
             ].map((l, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: 10, background: "var(--bg-sunken)", borderRadius: 8 }}>
-                <Avatar name={l.who} color={l.color} />
+                <AntAvatar style={{ backgroundColor: ["#f56a00", "#7265e6", "#ffbf00", "#00a2ae"][i % 4] }}>{l.who.charAt(0)}</AntAvatar>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 600 }}>{l.who}</div>
                   <div style={{ fontSize: 11, color: "var(--fg-muted)" }}>{l.type} · {l.days} · from {l.from}</div>
                 </div>
-                <Btn variant="ghost" size="sm"><Icon name="x" size={12} /></Btn>
-                <Btn variant="primary" size="sm"><Icon name="check" size={12} /></Btn>
+                <AntButton type="text" size="small" icon={<CloseOutlined />} />
+                <AntButton type="primary" size="small" icon={<CheckOutlined />} />
               </div>
             ))}
           </div>
@@ -196,54 +249,14 @@ const Attendance = () => {
 
       <div className="card">
         <div className="card-head">
-          <div className="card-title"><Icon name="clock" size={14} /> Today's attendance · May 21</div>
+          <div className="card-title"><ClockCircleOutlined style={{ marginRight: 6 }} /> Today's attendance · May 21</div>
           <div style={{ display: "flex", gap: 8 }}>
             <select className="input" style={{ height: 30, width: 140 }}><option>All depts</option><option>Production</option><option>Sales</option></select>
             <input className="input" placeholder="Search…" style={{ height: 30, width: 180 }} />
           </div>
         </div>
-        <div className="card-body flush" style={{ overflowX: "auto" }}>
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>Emp ID</th><th>Name</th><th>Department</th><th>Check-in</th><th>Check-out</th><th>Worked</th><th>Late by</th><th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {DATA.EMPLOYEES.map((e, i) => {
-                const states = [
-                  { in_: "08:54", out: "—",     w: "ongoing", late: "—",  st: "active",  late_: false },
-                  { in_: "09:02", out: "—",     w: "ongoing", late: "—",  st: "active",  late_: false },
-                  { in_: "09:18", out: "—",     w: "ongoing", late: "18 m", st: "active", late_: true },
-                  { in_: "—",     out: "—",     w: "—",      late: "—",   st: "leave",   late_: false },
-                  { in_: "09:00", out: "—",     w: "ongoing", late: "—",  st: "active",  late_: false },
-                  { in_: "09:32", out: "—",     w: "ongoing", late: "32 m", st: "active", late_: true },
-                  { in_: "08:48", out: "—",     w: "ongoing", late: "—",  st: "active",  late_: false },
-                  { in_: "09:04", out: "—",     w: "ongoing", late: "—",  st: "active",  late_: false },
-                  { in_: "09:10", out: "—",     w: "ongoing", late: "10 m", st: "field",  late_: false },
-                  { in_: "—",     out: "—",     w: "—",      late: "—",   st: "absent",  late_: false },
-                ];
-                const s = states[i % states.length];
-                return (
-                  <tr key={e.id}>
-                    <td className="mono strong">{e.id}</td>
-                    <td><div style={{ display: "flex", alignItems: "center", gap: 8 }}><Avatar name={e.name} color={(i % 5) + 1} />{e.name}</div></td>
-                    <td className="muted">{e.dept}</td>
-                    <td className="mono">{s.in_}</td>
-                    <td className="mono subtle">{s.out}</td>
-                    <td className="mono">{s.w}</td>
-                    <td className={s.late_ ? "mono" : "mono subtle"} style={{ color: s.late_ ? "var(--warning)" : undefined, fontWeight: s.late_ ? 600 : 400 }}>{s.late}</td>
-                    <td>{
-                      s.st === "active" ? <Badge tone="success" dot>Present</Badge> :
-                      s.st === "leave"  ? <Badge tone="info" dot>On leave</Badge> :
-                      s.st === "field"  ? <Badge tone="primary" dot>Field</Badge> :
-                      <Badge tone="danger" dot>Absent</Badge>
-                    }</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="card-body flush" style={{ overflowX: "auto", padding: 16 }}>
+          <Table dataSource={dataSource} columns={columns} pagination={false} rowKey="id" />
         </div>
       </div>
 
@@ -288,25 +301,42 @@ const Payroll = () => {
 
   const total = PAYROLL.reduce((s, p) => s + p.net, 0);
 
+  const columns = [
+    { title: "Emp ID", dataIndex: "id", key: "id", render: (text) => <span className="mono strong">{text}</span> },
+    { title: "Name", dataIndex: "name", key: "name", render: (text, record, i) => (
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <AntAvatar style={{ backgroundColor: ["#f56a00", "#7265e6", "#ffbf00", "#00a2ae"][i % 4] }}>{text.charAt(0)}</AntAvatar>
+        {text}
+      </div>
+    )},
+    { title: "Basic", dataIndex: "basic", key: "basic", align: "right", render: (v) => <span className="num">{fmtINRFull(v)}</span> },
+    { title: "HRA", dataIndex: "hra", key: "hra", align: "right", render: (v) => <span className="num">{fmtINRFull(v)}</span> },
+    { title: "Allow", dataIndex: "allowances", key: "allowances", align: "right", render: (v) => <span className="num">{fmtINRFull(v)}</span> },
+    { title: "PF", dataIndex: "pf", key: "pf", align: "right", render: (v) => <span className="num" style={{ color: "var(--fg-muted)" }}>−{fmtINRFull(v)}</span> },
+    { title: "TDS", dataIndex: "tds", key: "tds", align: "right", render: (v) => <span className="num" style={{ color: "var(--fg-muted)" }}>−{fmtINRFull(v)}</span> },
+    { title: "Net pay", dataIndex: "net", key: "net", align: "right", render: (v) => <span className="num strong" style={{ fontWeight: 600 }}>{fmtINRFull(v)}</span> },
+    { title: "", key: "action", render: () => <AntButton type="text" size="small" icon={<EyeOutlined />}>Slip</AntButton> },
+  ];
+
   return (
     <>
       <DashHead title="Payroll & Payslips" sub="Salary sheets, payroll runs, daily-wage register">
-        <Btn size="sm" icon="calendar">May 2026</Btn>
-        <Btn size="sm" icon="download">Salary sheet · CSV</Btn>
-        <Btn variant="primary" size="sm" icon="bolt" onClick={() => { clearError(); setRunOpen(true); }}>Run payroll</Btn>
+        <AntButton size="small" icon={<CalendarOutlined />}>May 2026</AntButton>
+        <AntButton size="small" icon={<DownloadOutlined />}>Salary sheet · CSV</AntButton>
+        <AntButton type="primary" size="small" icon={<ThunderboltOutlined />} onClick={() => { clearError(); setRunOpen(true); }}>Run payroll</AntButton>
       </DashHead>
 
       <div className="grid grid-4" style={{ marginBottom: 20 }}>
-        <div className="kpi"><div className="kpi-label"><Icon name="users" size={13} className="ico" />Headcount on payroll</div><div className="kpi-value tabular">306</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>+ 48 daily wage</div></div>
-        <div className="kpi"><div className="kpi-label"><Icon name="money" size={13} className="ico" />Gross payout</div><div className="kpi-value">{fmtINR(total * 1.25)}</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>May estimate</div></div>
-        <div className="kpi"><div className="kpi-label"><Icon name="invoice" size={13} className="ico" />Statutory dues</div><div className="kpi-value">{fmtINR(total * 0.2)}</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>PF + ESI + TDS</div></div>
-        <div className="kpi"><div className="kpi-label"><Icon name="check" size={13} className="ico" />Status</div><div className="kpi-value" style={{ color: "var(--warning)", fontSize: 18 }}>Draft</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>Run by May 28</div></div>
+        <div className="kpi"><div className="kpi-label"><TeamOutlined style={{ marginRight: 6 }} />Headcount on payroll</div><div className="kpi-value tabular">306</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>+ 48 daily wage</div></div>
+        <div className="kpi"><div className="kpi-label"><MoneyCollectOutlined style={{ marginRight: 6 }} />Gross payout</div><div className="kpi-value">{fmtINR(total * 1.25)}</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>May estimate</div></div>
+        <div className="kpi"><div className="kpi-label"><FileTextOutlined style={{ marginRight: 6 }} />Statutory dues</div><div className="kpi-value">{fmtINR(total * 0.2)}</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>PF + ESI + TDS</div></div>
+        <div className="kpi"><div className="kpi-label"><CheckCircleOutlined style={{ marginRight: 6 }} />Status</div><div className="kpi-value" style={{ color: "var(--warning)", fontSize: 18 }}>Draft</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>Run by May 28</div></div>
       </div>
 
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-head">
-          <div className="card-title"><Icon name="bolt" size={14} /> Payroll workflow · May 2026</div>
-          <Badge tone="warning" dot>In progress · Step 2/5</Badge>
+          <div className="card-title"><ThunderboltOutlined style={{ marginRight: 6 }} /> Payroll workflow · May 2026</div>
+          <AntBadge status="warning" text="In progress · Step 2/5" />
         </div>
         <div className="card-body">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 0, position: "relative" }}>
@@ -331,7 +361,7 @@ const Payroll = () => {
                   color: s.done || s.active ? "white" : "var(--fg-muted)",
                   border: s.active ? "3px solid var(--primary-soft)" : "none",
                   position: "relative", zIndex: 1, flexShrink: 0,
-                }}>{s.done ? <Icon name="check" size={14} stroke={2.5} /> : i + 1}</div>
+                }}>{s.done ? <CheckOutlined style={{ fontSize: 14 }} strokeWidth={2.5} /> : i + 1}</div>
                 <div style={{ marginTop: 12, textAlign: "center", padding: "0 6px", minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.l}</div>
                   <div style={{ fontSize: 11, color: "var(--fg-subtle)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.d}</div>
@@ -351,47 +381,25 @@ const Payroll = () => {
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
             <input className="input" placeholder="Search…" style={{ height: 30, width: 180 }} />
-            <Btn size="sm" icon="filter">Filter</Btn>
+            <AntButton size="small" icon={<FilterOutlined />}>Filter</AntButton>
           </div>
         </div>
-        <div style={{ overflowX: "auto" }}>
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>Emp ID</th><th>Name</th>
-                <th style={{ textAlign: "right" }}>Basic</th>
-                <th style={{ textAlign: "right" }}>HRA</th>
-                <th style={{ textAlign: "right" }}>Allow</th>
-                <th style={{ textAlign: "right" }}>PF</th>
-                <th style={{ textAlign: "right" }}>TDS</th>
-                <th style={{ textAlign: "right" }}>Net pay</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {PAYROLL.map((p, i) => (
-                <tr key={p.id} onClick={() => setOpenSlip(p)} style={{ cursor: "pointer" }}>
-                  <td className="mono strong">{p.id}</td>
-                  <td><div style={{ display: "flex", alignItems: "center", gap: 8 }}><Avatar name={p.name} color={(i % 5) + 1} />{p.name}</div></td>
-                  <td className="num">{fmtINRFull(p.basic)}</td>
-                  <td className="num">{fmtINRFull(p.hra)}</td>
-                  <td className="num">{fmtINRFull(p.allowances)}</td>
-                  <td className="num" style={{ color: "var(--fg-muted)" }}>−{fmtINRFull(p.pf)}</td>
-                  <td className="num" style={{ color: "var(--fg-muted)" }}>−{fmtINRFull(p.tds)}</td>
-                  <td className="num strong" style={{ fontWeight: 600 }}>{fmtINRFull(p.net)}</td>
-                  <td><Btn variant="ghost" size="sm" icon="eye">Slip</Btn></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div style={{ padding: 16, overflowX: "auto" }}>
+          <Table 
+            dataSource={PAYROLL} 
+            columns={columns} 
+            pagination={false} 
+            rowKey="id" 
+            onRow={(record) => ({ onClick: () => setOpenSlip(record), style: { cursor: "pointer" } })} 
+          />
         </div>
       </div>
 
       <Modal open={!!openSlip} onClose={() => setOpenSlip(null)} title="Payslip" sub={openSlip ? `${openSlip.name} · May 2026` : ""} wide
         footer={<>
-          <Btn icon="download" onClick={() => setOpenSlip(null)}>Download PDF</Btn>
-          <Btn icon="mail">Email</Btn>
-          <Btn variant="primary" onClick={() => setOpenSlip(null)}>Close</Btn>
+          <AntButton icon={<DownloadOutlined />} onClick={() => setOpenSlip(null)}>Download PDF</AntButton>
+          <AntButton icon={<MailOutlined />}>Email</AntButton>
+          <AntButton type="primary" onClick={() => setOpenSlip(null)}>Close</AntButton>
         </>}>
         {openSlip && (
           <div style={{ background: "white", padding: 24, borderRadius: 8, border: "1px solid var(--border)" }}>
@@ -472,12 +480,12 @@ const Payroll = () => {
 
       <Modal open={runOpen} onClose={() => setRunOpen(false)} title="Run payroll · May 2026" sub="Generate salary sheets, statutory dues, disbursal batch" wide
         footer={<>
-          <Btn variant="ghost" onClick={() => setRunOpen(false)} disabled={saving}>Cancel</Btn>
-          <Btn variant="primary" onClick={runPayroll} icon="bolt" disabled={saving}>{saving ? "Processing…" : "Lock & process"}</Btn>
+          <AntButton onClick={() => setRunOpen(false)} disabled={saving}>Cancel</AntButton>
+          <AntButton type="primary" onClick={runPayroll} icon={<ThunderboltOutlined />} disabled={saving}>{saving ? "Processing…" : "Lock & process"}</AntButton>
         </>}>
         {error ? <p style={{ color: "var(--danger)", fontSize: 12, padding: "0 16px 8px" }}>{error}</p> : null}
         <div style={{ padding: 14, background: "var(--warning-soft)", border: "1px solid var(--warning)", borderRadius: 8, display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 16 }}>
-          <Icon name="alert" size={16} style={{ color: "var(--warning)", flexShrink: 0, marginTop: 2 }} />
+          <AlertOutlined style={{ color: "var(--warning)", flexShrink: 0, marginTop: 2, fontSize: 16 }} />
           <div>
             <div style={{ fontSize: 13, fontWeight: 600 }}>Locking payroll is irreversible</div>
             <div style={{ fontSize: 12, color: "var(--fg-muted)", marginTop: 2 }}>Attendance, allowances, and exceptions will be frozen for May 2026. You will not be able to edit time entries after this step.</div>
@@ -530,7 +538,7 @@ const Payroll = () => {
             <div key={i} style={{ padding: 10, background: "var(--bg-sunken)", borderRadius: 6, display: "flex", alignItems: "center", gap: 10, fontSize: 12 }}>
               <span className={`dot ${e.sev}`} style={{ flexShrink: 0 }}></span>
               <div style={{ flex: 1 }}><strong>{e.who}</strong> <span className="muted">— {e.issue}</span></div>
-              <Btn variant="ghost" size="sm">Resolve</Btn>
+              <AntButton type="link" size="small">Resolve</AntButton>
             </div>
           ))}
         </div>

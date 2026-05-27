@@ -15,7 +15,7 @@ import { Btn, Badge } from "./ui";
 const AuthAside = () => (
   <div className="auth-aside">
     <div className="auth-aside-head">
-      <div className="mark">S</div>
+      <img src="/sudarshan-group-logo.webp" alt="Sudarshan Group Logo" style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 8 }} />
       <div>
         <div>Sudarshan Group</div>
         <div style={{ fontSize: 11, opacity: 0.7, fontFamily: "var(--font-sans)", fontWeight: 400 }}>
@@ -60,6 +60,7 @@ const Login = ({ onLogin, onForgot, userEmail }) => {
   const [pwd, setPwd] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
 
   return (
     <div className="auth-shell">
@@ -81,8 +82,14 @@ const Login = ({ onLogin, onForgot, userEmail }) => {
               <a onClick={onForgot} style={{ cursor: "pointer", color: "var(--primary)", fontWeight: 500 }}>Forgot?</a>
             </label>
             <div style={{ position: "relative" }}>
-              <input className="input lg" type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} />
-              <Icon name="lock" size={14} style={{ position: "absolute", right: 12, top: 13, color: "var(--fg-subtle)" }} />
+              <input className="input lg" type={showPwd ? "text" : "password"} value={pwd} onChange={(e) => setPwd(e.target.value)} style={{ paddingRight: 36 }} />
+              <button 
+                type="button" 
+                onClick={() => setShowPwd(!showPwd)}
+                style={{ position: "absolute", right: 12, top: 13, background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--fg-subtle)" }}
+              >
+                <Icon name={showPwd ? "eyeOff" : "eye"} size={14} />
+              </button>
             </div>
           </div>
 

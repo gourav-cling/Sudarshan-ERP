@@ -5,11 +5,15 @@
 import React, { useState } from "react";
 import { Icon } from "./icons";
 import { useDATA } from "./data";
+import { DashHead } from "./dashboards";
 import { Btn, Badge, StatusBadge, Avatar, Bar, Sparkline, Kpi, Modal, fmtINR, fmtINRFull, fmtNum, AreaChart, BarChart, Donut } from "./ui";
 import { EntityFormModal, FormField, FormGrid, FormInput, FormSelect, useFormState, requireFields } from "@/components/forms";
 import { useEntityMutation } from "@/hooks/use-entity-mutation";
 import { nextEmployeeId } from "@/lib/id-generators";
-
+import { useEffect, useCallback } from "react";
+import { Tabs, Table, Badge as AntBadge, Button, Avatar as AntAvatar, Drawer, Checkbox, Spin, Tag, message, Tooltip, Divider, Input } from "antd";
+import { LockOutlined, SafetyOutlined, UserAddOutlined, KeyOutlined, EditOutlined, CheckCircleFilled, MinusCircleFilled, PlusOutlined, SafetyCertificateOutlined, CrownOutlined, EyeOutlined, PlusCircleOutlined, ExportOutlined, FileDoneOutlined, TeamOutlined, IdcardOutlined } from "@ant-design/icons";
+import StatCard from "@/components/common/StatCard";
 /* ============================================================
    ADMIN — Users, Permissions, Design System, Placeholders
    ============================================================ */
@@ -18,231 +22,555 @@ import { nextEmployeeId } from "@/lib/id-generators";
 /* ============================================================
    USER MANAGEMENT + PERMISSION MATRIX
    ============================================================ */
-const PermLabel = { F: "Full", E: "Edit", V: "View", "-": "" };
-const PermClass = { F: "perm-full", E: "perm-edit", V: "perm-view", "-": "perm-none" };
+// ─── Types ────────────────────────────────────────────────────────────────────
+const MODULE_KEYS = [
+  "dashboard", "hr", "payroll",
+  "inventory_raw", "inventory_packaging", "inventory_spares",
+  "procurement_vendors", "procurement_po", "procurement_invoice",
+  "sales_customers", "sales_orders",
+  "operations_production", "operations_quality",
+  "dispatch", "settings", "user_management", "reports",
+] as const;
+type ModuleKey = (typeof MODULE_KEYS)[number];
+type PermAction = "view" | "add" | "edit" | "approve" | "export";
 
+const MODULE_LABELS: Record<ModuleKey, string> = {
+  dashboard: "Dashboard",
+  hr: "HR & Attendance",
+  payroll: "Payroll",
+  inventory_raw: "Inventory: Raw Material",
+  inventory_packaging: "Inventory: Packaging",
+  inventory_spares: "Inventory: Spare Parts",
+  procurement_vendors: "Procurement: Vendors",
+  procurement_po: "Procurement: Purchase Orders",
+  procurement_invoice: "Procurement: Invoice Verify",
+  sales_customers: "Sales: Customers",
+  sales_orders: "Sales: Orders",
+  operations_production: "Operations: Production",
+  operations_quality: "Operations: Quality",
+  dispatch: "Dispatch",
+  settings: "Settings",
+  user_management: "User Management",
+  reports: "Reports",
+};
+
+const MODULE_GROUPS = [
+  { label: "Core", keys: ["dashboard", "reports"] },
+  { label: "HRMS", keys: ["hr", "payroll"] },
+  { label: "Inventory", keys: ["inventory_raw", "inventory_packaging", "inventory_spares"] },
+  { label: "Procurement", keys: ["procurement_vendors", "procurement_po", "procurement_invoice"] },
+  { label: "Sales", keys: ["sales_customers", "sales_orders"] },
+  { label: "Operations", keys: ["operations_production", "operations_quality"] },
+  { label: "Logistics", keys: ["dispatch"] },
+  { label: "Administration", keys: ["settings", "user_management"] },
+] as const;
+
+const PERM_ACTIONS: PermAction[] = ["view", "add", "edit", "approve", "export"];
+
+type ModulePerm = { view: boolean; add: boolean; edit: boolean; approve: boolean; export: boolean };
+type PermissionsMap = Record<ModuleKey, ModulePerm>;
+
+interface Role {
+  _id: string;
+  roleKey: string;
+  label: string;
+  description: string;
+  isSystem: boolean;
+  permissions: PermissionsMap;
+}
+
+// ─── Role Badge Color Map ─────────────────────────────────────────────────────
+const ROLE_COLORS: Record<string, string> = {
+  owner: "#374d95",
+  admin: "#6d28d9",
+  procurement: "#0369a1",
+  "rm-procurement": "#0f766e",
+  "packaging-procurement": "#15803d",
+  "spare-parts-procurement": "#92400e",
+  production: "#b45309",
+  dispatch: "#c2410c",
+  store: "#374151",
+  hr: "#be185d",
+};
+
+const getRoleColor = (key: string) => ROLE_COLORS[key] ?? "#374d95";
+
+// ─── Component ────────────────────────────────────────────────────────────────
 const UserManagement = () => {
-  const DATA = useDATA();
-  const { append, update, createUser, saving, error, clearError } = useEntityMutation();
-  const [tab, setTab] = useState("matrix");
-  const [editPerm, setEditPerm] = useState(null);
-  const [permLevel, setPermLevel] = useState("F");
-  const [addUser, setAddUser] = useState(false);
-  const userForm = useFormState({ name: "", email: "", role: DATA.ROLES[0]?.key ?? "admin", employeeId: "" });
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(true);
+  const [users, setUsers] = useState<any[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [isCreatingRole, setIsCreatingRole] = useState(false);
+  const [editingRole, setEditingRole] = useState<Role | null>(null);
+  const [editPerms, setEditPerms] = useState<PermissionsMap | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [messageApi, contextHolder] = message.useMessage();
 
-  const savePermission = async () => {
-    if (!editPerm) return;
-    const roleKey = DATA.ROLES.find((r) => r.label === editPerm.role)?.key;
-    if (!roleKey) throw new Error("Unknown role");
-    await update("permissions", editPerm.module, { [roleKey]: permLevel }, "module");
-    setEditPerm(null);
+  const loadData = useCallback(async () => {
+    try {
+      setRolesLoading(true);
+      setUsersLoading(true);
+      
+      const [rolesRes, employeesRes] = await Promise.all([
+        fetch("/api/system/roles"),
+        fetch("/api/hrms/employees")
+      ]);
+      
+      const rolesData = await rolesRes.json();
+      const employeesData = await employeesRes.json();
+      
+      let fetchedRoles: Role[] = [];
+      if (rolesData.success) {
+        fetchedRoles = rolesData.data;
+        setRoles(fetchedRoles);
+      }
+      
+      if (employeesData.success) {
+        const employeeUsers = employeesData.data.map((emp: any) => {
+          const roleLabel = fetchedRoles.find((r) => r.roleKey === emp.department)?.label || emp.department || "No Role";
+          return {
+            key: emp.employeeId || emp._id,
+            name: emp.fullName || "Unknown",
+            email: emp.officialEmail || emp.personalEmail || "N/A",
+            role: roleLabel,
+            status: emp.status || "Active",
+            scope: "Global (All entities)",
+          };
+        });
+        setUsers(employeeUsers);
+      }
+    } catch {
+      messageApi.error("Failed to load data");
+    } finally {
+      setRolesLoading(false);
+      setUsersLoading(false);
+    }
+  }, [messageApi]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const openDrawer = (role: Role) => {
+    setIsCreatingRole(false);
+    setEditingRole(role);
+    setEditPerms(JSON.parse(JSON.stringify(role.permissions))); // deep clone
+    setEditLabel(role.label);
+    setEditDesc(role.description);
+    setDrawerOpen(true);
   };
 
-  const inviteUser = async () => {
-    const err = requireFields(userForm.values, ["name", "email"]);
-    if (err) throw new Error(err);
-    const empId = userForm.values.employeeId || nextEmployeeId(DATA.EMPLOYEES);
-    await createUser({
-      email: userForm.values.email.trim(),
-      name: userForm.values.name.trim(),
-      role: userForm.values.role,
-      employeeId: empId,
+  const openCreateDrawer = () => {
+    setIsCreatingRole(true);
+    setEditingRole(null);
+    setEditLabel("");
+    setEditDesc("");
+    const emptyPerms = {} as PermissionsMap;
+    MODULE_KEYS.forEach((key) => {
+      emptyPerms[key] = { view: false, add: false, edit: false, approve: false, export: false };
     });
-    await append("employees", {
-      id: empId,
-      name: userForm.values.name.trim(),
-      role: userForm.values.role,
-      dept: "Operations",
-      status: "active",
-      since: String(new Date().getFullYear()),
-    });
-    setAddUser(false);
-    userForm.reset({ name: "", email: "", role: DATA.ROLES[0]?.key ?? "admin", employeeId: "" });
+    setEditPerms(emptyPerms);
+    setDrawerOpen(true);
   };
 
-  return (
-    <>
-      <DashHead title="User Management" sub="Roles, permissions, and access across both companies">
-        <Btn icon="upload" size="sm">Import users</Btn>
-        <Btn variant="primary" size="sm" icon="plus" onClick={() => setAddUser(true)}>Add user</Btn>
-      </DashHead>
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    setEditingRole(null);
+    setEditPerms(null);
+    setIsCreatingRole(false);
+  };
 
-      <div className="grid grid-4" style={{ marginBottom: 20 }}>
-        <div className="kpi"><div className="kpi-label"><Icon name="users" size={13} className="ico" />Total users</div><div className="kpi-value tabular">{DATA.EMPLOYEES.length}</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>Across SMI + Microns</div></div>
-        <div className="kpi"><div className="kpi-label"><Icon name="shield" size={13} className="ico" />Active roles</div><div className="kpi-value tabular">{DATA.ROLES.length}</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>2 with full access</div></div>
-        <div className="kpi"><div className="kpi-label"><Icon name="check" size={13} className="ico" />Active sessions</div><div className="kpi-value tabular">48</div><div style={{ fontSize: 11, color: "var(--success)" }}>+12% today</div></div>
-        <div className="kpi"><div className="kpi-label"><Icon name="alert" size={13} className="ico" />Pending requests</div><div className="kpi-value" style={{ color: "var(--warning)" }}>3</div><div style={{ fontSize: 11, color: "var(--fg-muted)" }}>Permission changes</div></div>
-      </div>
+  const togglePerm = (mod: ModuleKey, action: PermAction) => {
+    if (!editPerms) return;
+    setEditPerms((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        [mod]: {
+          ...prev[mod],
+          [action]: !prev[mod][action],
+        },
+      };
+    });
+  };
 
-      <div className="card">
-        <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center" }}>
-          <div className="tabs" style={{ border: "none", marginBottom: -1 }}>
-            <span className={`tab ${tab === "matrix" ? "active" : ""}`} onClick={() => setTab("matrix")}>Permission Matrix</span>
-            <span className={`tab ${tab === "users" ? "active" : ""}`} onClick={() => setTab("users")}>Users <span className="tab-count">{DATA.EMPLOYEES.length}</span></span>
-            <span className={`tab ${tab === "roles" ? "active" : ""}`} onClick={() => setTab("roles")}>Roles <span className="tab-count">{DATA.ROLES.length}</span></span>
-          </div>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-            <select className="input" style={{ width: 200, height: 30 }}>
-              <option>Both companies</option><option>Sudarshan Minerals only</option><option>Sudarshan Microns only</option>
-            </select>
-            <Btn size="sm" icon="download">Export CSV</Btn>
+  const saveRole = async () => {
+    if (!editLabel.trim()) {
+      messageApi.error("Role label is required");
+      return;
+    }
+    if (!editPerms) return;
+    setSaving(true);
+    try {
+      if (isCreatingRole) {
+        const roleKey = editLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+        const res = await fetch(`/api/system/roles`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            roleKey,
+            label: editLabel,
+            description: editDesc,
+            permissions: editPerms,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to create role");
+        messageApi.success("Role created successfully!");
+      } else {
+        if (!editingRole) return;
+        const res = await fetch(`/api/system/roles/${editingRole.roleKey}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            label: editLabel,
+            description: editDesc,
+            permissions: editPerms,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to save");
+        messageApi.success("Role permissions saved successfully!");
+      }
+      await loadData();
+      closeDrawer();
+    } catch (err: any) {
+      messageApi.error(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ─── Count perms summary ────────────────────────────────────────────────────
+  const countPerms = (perms: PermissionsMap) => {
+    let total = 0;
+    MODULE_KEYS.forEach((mod) => {
+      PERM_ACTIONS.forEach((act) => {
+        if (perms[mod]?.[act]) total++;
+      });
+    });
+    return total;
+  };
+
+  // ─── Users tab columns ──────────────────────────────────────────────────────
+  const userColumns = [
+    {
+      title: "User Profile",
+      dataIndex: "name",
+      key: "name",
+      render: (text: string, record: any) => (
+        <div className="flex items-center gap-3">
+          <AntAvatar icon={<SafetyOutlined />} style={{ backgroundColor: "#374d95" }} />
+          <div>
+            <div className="font-bold text-zinc-900">{text}</div>
+            <div className="text-zinc-400 text-xs">{record.email}</div>
           </div>
         </div>
+      ),
+    },
+    {
+      title: "System Role",
+      dataIndex: "role",
+      key: "role",
+      render: (text: string) => {
+        const matched = roles.find((r) => r.label === text);
+        const color = matched ? getRoleColor(matched.roleKey) : "#374d95";
+        return (
+          <Tag style={{ backgroundColor: color + "18", color, borderColor: color + "40", fontWeight: 600 }}>
+            {text}
+          </Tag>
+        );
+      },
+    },
+    { title: "Access Scope", dataIndex: "scope", key: "scope" },
+    {
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
+      render: (text: string) => <AntBadge status="success" text={<span className="text-emerald-600 font-semibold">{text}</span>} />,
+    },
+    {
+      title: "",
+      key: "action",
+      render: () => <Button type="link" size="small" icon={<KeyOutlined />}>Permissions</Button>,
+      align: "right" as const,
+    },
+  ];
 
-        {tab === "matrix" && (
-          <div style={{ overflowX: "auto" }}>
-            <table className="perm-tbl">
-              <thead>
-                <tr>
-                  <th>Module</th>
-                  {DATA.ROLES.map((r) => <th key={r.key}>{r.label}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {DATA.PERMISSIONS.map((p) => (
-                  <tr key={p.module}>
-                    <td>{p.module}</td>
-                    {DATA.ROLES.map((r) => {
-                      const v = p[r.key];
-                      return (
-                        <td key={r.key}>
-                          {v !== "-" ? (
-                            <span className={`perm-cell ${PermClass[v]}`} onClick={() => { setPermLevel(v); setEditPerm({ module: p.module, role: r.label, level: v }); }} style={{ cursor: "pointer" }}>
-                              {PermLabel[v]}
-                            </span>
-                          ) : (
-                            <span className={`perm-cell perm-none`}>—</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
+  return (
+    <div className="flex flex-col gap-6">
+      {contextHolder}
+      <DashHead
+        title="User Access Management"
+        sub="Control permissions, system accounts, and security privileges"
+      >
+        <Button
+          type="primary"
+          icon={<UserAddOutlined />}
+          style={{ height: 38, borderRadius: 6, background: "#374d95", border: "none", fontWeight: 600, fontSize: 13 }}
+        >
+          Add System Account
+        </Button>
+      </DashHead>
+
+      {/* Summary Cards */}
+      <div className="grid grid-3" style={{ gap: 16 }}>
+        {[
+          { label: "Active System Users", icon: TeamOutlined, value: users.length.toString(), hint: "Maximum allowed: 10 admin seats", hintTone: "default" },
+          { label: "MFA Status", icon: SafetyCertificateOutlined, value: "Enabled", hint: "Enforced across all administration endpoints", hintTone: "positive" },
+          { label: "Active Roles", icon: IdcardOutlined, value: roles.length.toString(), hint: `${roles.filter(r => r.isSystem).length} system + ${roles.filter(r => !r.isSystem).length} custom roles`, hintTone: "default" },
+        ].map((card) => (
+          <StatCard
+            key={card.label}
+            icon={card.icon}
+            label={card.label}
+            value={card.value}
+            hint={card.hint}
+            hintTone={card.hintTone as any}
+          />
+        ))}
+      </div>
+
+      {/* Tabs */}
+      <div className="card" style={{ padding: 16, overflow: "visible" }}>
+        <Tabs
+          defaultActiveKey="users"
+          items={[
+            {
+              key: "users",
+              label: <span className="font-semibold p-4">System Users</span>,
+              children: (
+                <div className="px-5 pb-6 pt-2">
+                  <Table dataSource={users} columns={userColumns} loading={usersLoading} pagination={false} bordered={false} />
+                </div>
+              ),
+            },
+            {
+              key: "roles",
+              label: (
+                <span className="font-semibold flex items-center gap-1.5">
+                  <SafetyCertificateOutlined className="text-[12px]" />
+                  Roles & Permissions
+                </span>
+              ),
+              children: (
+                <div className="px-5 pt-2">
+                  {rolesLoading ? (
+                    <div className="flex items-center justify-center py-16"><Spin size="large" /></div>
+                  ) : (
+                    <div className="flex flex-col gap-4">
+                      <div className="flex justify-between items-center" style={{ marginBottom: 16 }}>
+                        <p className="text-zinc-500 text-sm" style={{ margin: 0 }}>
+                          {roles.length} roles defined — click any card to view and edit permissions.
+                        </p>
+                        <Button
+                          icon={<PlusOutlined />}
+                          size="small"
+                          onClick={openCreateDrawer}
+                          style={{ fontWeight: 600, borderRadius: 6 }}
+                        >
+                          New Custom Role
+                        </Button>
+                      </div>
+                      <div className="grid grid-3" style={{ gap: 16 }}>
+                        {roles.map((role) => {
+                          const color = getRoleColor(role.roleKey);
+                          const permCount = countPerms(role.permissions);
+                          return (
+                            <div
+                              key={role.roleKey}
+                              onClick={() => openDrawer(role)}
+                              style={{ padding: 20, cursor: "pointer", position: "relative" }}
+                              className="card group hover:shadow-sm transition-all duration-150"
+                            >
+                              <div className="flex items-start justify-between mb-3" style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+                                <div className="flex items-center gap-2" style={{ display: "flex", gap: 8 }}>
+                                  <div
+                                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[11px] font-black"
+                                    style={{ background: color, width: 32, height: 32, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "white" }}
+                                  >
+                                    {role.isSystem ? <CrownOutlined /> : <LockOutlined />}
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-zinc-900 text-sm leading-none" style={{ fontWeight: 700, fontSize: 14 }}>{role.label}</div>
+                                    <div className="text-[10px] text-zinc-400 font-mono uppercase mt-0.5 tracking-wider" style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--fg-muted)", marginTop: 2, textTransform: "uppercase" }}>{role.roleKey}</div>
+                                  </div>
+                                </div>
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  icon={<EditOutlined />}
+                                  style={{ color, opacity: 0.7 }}
+                                />
+                              </div>
+                              <p className="text-zinc-500 text-[12px] leading-relaxed line-clamp-2 mb-3" style={{ fontSize: 12, color: "var(--fg-muted)", marginBottom: 12 }}>{role.description}</p>
+                              <div className="flex items-center justify-between pt-3 border-t border-zinc-100" style={{ display: "flex", justifyContent: "space-between", paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+                                <div className="text-[11px] text-zinc-400" style={{ fontSize: 11, color: "var(--fg-muted)" }}>
+                                  <span className="font-bold text-zinc-700" style={{ fontWeight: 700, color: "var(--fg)" }}>{permCount}</span> permissions granted
+                                </div>
+                                {role.isSystem ? (
+                                  <Tag style={{ fontSize: 10, lineHeight: "16px", borderRadius: 4 }} color="blue">System</Tag>
+                                ) : (
+                                  <Tag style={{ fontSize: 10, lineHeight: "16px", borderRadius: 4 }} color="default">Custom</Tag>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ),
+            },
+          ]}
+        />
+      </div>
+
+      {/* Permission Edit Drawer */}
+      <Drawer
+        title={
+          <div className="flex items-center gap-3" style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm"
+              style={{ background: isCreatingRole ? "#10b981" : (editingRole ? getRoleColor(editingRole.roleKey) : "#374d95"), width: 32, height: 32, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "white" }}
+            >
+              <SafetyCertificateOutlined />
+            </div>
+            <div>
+              <div className="font-bold text-zinc-900 text-base leading-none" style={{ fontWeight: 700, fontSize: 16 }}>
+                {isCreatingRole ? "Create New Role" : `${editingRole?.label ?? "Role"} — Permissions`}
+              </div>
+              {!isCreatingRole && <div className="text-[11px] text-zinc-400 font-mono mt-0.5" style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--fg-muted)", marginTop: 2 }}>{editingRole?.roleKey}</div>}
+            </div>
+          </div>
+        }
+        open={drawerOpen}
+        onClose={closeDrawer}
+        width={640}
+        footer={
+          <div className="flex justify-end gap-3 py-1" style={{ display: "flex", justifyContent: "flex-end", gap: 12, padding: "4px 0" }}>
+            <Button onClick={closeDrawer} disabled={saving} style={{ fontWeight: 500 }}>Cancel</Button>
+            <Button
+              type="primary"
+              onClick={saveRole}
+              loading={saving}
+              style={{ background: "#374d95", border: "none", fontWeight: 600, borderRadius: 6 }}
+            >
+              Save Permissions
+            </Button>
+          </div>
+        }
+      >
+        {editPerms && (
+          <div className="flex flex-col gap-5" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {/* Label & Desc */}
+            <div className="flex flex-col gap-3 p-4 bg-zinc-50 border border-zinc-200 rounded-xl" style={{ display: "flex", flexDirection: "column", gap: 12, padding: 16, background: "var(--bg-sunken)", border: "1px solid var(--border)", borderRadius: 12 }}>
+              <div>
+                <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-1 block" style={{ fontSize: 11, fontWeight: 600, color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4, display: "block" }}>Role Label</label>
+                <Input
+                  value={editLabel}
+                  onChange={(e) => setEditLabel(e.target.value)}
+                  disabled={!isCreatingRole && editingRole?.isSystem ? true : false}
+                  style={{ height: 36 }}
+                  placeholder="e.g. Field Engineer"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-1 block" style={{ fontSize: 11, fontWeight: 600, color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4, display: "block" }}>Description</label>
+                <Input.TextArea
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            {/* Permission Matrix */}
+            <div>
+              <div className="flex items-center gap-2 mb-3" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <LockOutlined style={{ color: "var(--fg-muted)", fontSize: 14 }} />
+                <span className="font-bold text-zinc-800 text-sm" style={{ fontWeight: 700, fontSize: 14 }}>Permission Matrix</span>
+              </div>
+
+              {/* Action Header */}
+              <div className="grid grid-cols-[1fr_40px_40px_40px_40px_40px] gap-0 mb-1 px-1" style={{ display: "grid", gridTemplateColumns: "1fr 40px 40px 40px 40px 40px", gap: 0, marginBottom: 4, padding: "0 4px" }}>
+                <div />
+                {([
+                  { key: "view",    icon: <EyeOutlined />,           title: "View" },
+                  { key: "add",     icon: <PlusCircleOutlined />,    title: "Add" },
+                  { key: "edit",    icon: <EditOutlined />,          title: "Edit" },
+                  { key: "approve", icon: <FileDoneOutlined />,      title: "Approve" },
+                  { key: "export",  icon: <ExportOutlined />,        title: "Export" },
+                ] as const).map(({ key, icon, title }) => (
+                  <Tooltip key={key} title={title} placement="top">
+                    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", fontSize: 13, color: "var(--fg-muted)" }}>
+                      {icon}
+                    </div>
+                  </Tooltip>
                 ))}
-              </tbody>
-            </table>
-            <div style={{ padding: "14px 16px", display: "flex", gap: 18, fontSize: 11, color: "var(--fg-muted)", borderTop: "1px solid var(--border)" }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span className="perm-cell perm-full" style={{ minWidth: 36 }}>Full</span> Create, edit, delete, approve</span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span className="perm-cell perm-edit" style={{ minWidth: 36 }}>Edit</span> Create & modify</span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span className="perm-cell perm-view" style={{ minWidth: 36 }}>View</span> Read-only</span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ color: "var(--fg-faint)", padding: "0 8px" }}>—</span> No access</span>
+              </div>
+
+              {/* Module Groups */}
+              {MODULE_GROUPS.map((group) => (
+                <div key={group.label} style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.1em", padding: "0 4px", marginBottom: 4, marginTop: 8 }}>{group.label}</div>
+                  {(group.keys as unknown as ModuleKey[]).map((modKey) => {
+                    const perm = editPerms[modKey] ?? { view: false, add: false, edit: false, approve: false, export: false };
+                    const hasAny = PERM_ACTIONS.some((a) => perm[a]);
+                    return (
+                      <div
+                        key={modKey}
+                        style={{ display: "grid", gridTemplateColumns: "1fr 40px 40px 40px 40px 40px", alignItems: "center", gap: 0, padding: "8px 4px", borderRadius: 8, opacity: hasAny ? 1 : 0.5, transition: "background 0.2s" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "var(--bg-sunken)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <Tooltip title={hasAny ? "Has permissions" : "No permissions"}>
+                            {hasAny
+                              ? <CheckCircleFilled style={{ color: "#16a34a", fontSize: 12 }} />
+                              : <MinusCircleFilled style={{ color: "#d4d4d8", fontSize: 12 }} />
+                            }
+                          </Tooltip>
+                          <span style={{ fontSize: 12.5, color: "var(--fg)", fontWeight: 500 }}>{MODULE_LABELS[modKey]}</span>
+                        </div>
+                        {PERM_ACTIONS.map((act) => (
+                          <div key={act} style={{ display: "flex", justifyContent: "center" }}>
+                            <Checkbox
+                              checked={perm[act]}
+                              onChange={() => togglePerm(modKey, act)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                  <Divider style={{ margin: "8px 0", borderColor: "var(--border)" }} />
+                </div>
+              ))}
+
+              {/* Legend */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 11, color: "var(--fg-muted)", marginTop: 12, padding: "0 4px" }}>
+                {([
+                  { key: "view",    icon: <EyeOutlined />,           label: "View" },
+                  { key: "add",     icon: <PlusCircleOutlined />,    label: "Add" },
+                  { key: "edit",    icon: <EditOutlined />,          label: "Edit" },
+                  { key: "approve", icon: <FileDoneOutlined />,      label: "Approve" },
+                  { key: "export",  icon: <ExportOutlined />,        label: "Export" },
+                ] as const).map(({ key, icon, label }) => (
+                  <span key={key} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: 12 }}>{icon}</span>
+                    <span>{label}</span>
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         )}
-
-        {tab === "users" && (
-          <div style={{ overflowX: "auto" }}>
-            <table className="tbl">
-              <thead>
-                <tr>
-                  <th>Employee</th><th>Role</th><th>Department</th><th>Companies</th><th>Since</th><th>Last active</th><th>Status</th><th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {DATA.EMPLOYEES.map((e, i) => (
-                  <tr key={e.id}>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <Avatar name={e.name} color={(i % 5) + 1} />
-                        <div>
-                          <div className="strong">{e.name}</div>
-                          <div className="subtle" style={{ fontSize: 11 }}>{e.id}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td>{e.role}</td>
-                    <td className="muted">{e.dept}</td>
-                    <td>
-                      <div style={{ display: "flex", gap: 4 }}>
-                        {(i % 3 === 0) ? (
-                          <><Badge tone="primary" sq>SMI</Badge><Badge tone="gold" sq>Microns</Badge></>
-                        ) : (i % 2 === 0 ? <Badge tone="primary" sq>SMI</Badge> : <Badge tone="gold" sq>Microns</Badge>)}
-                      </div>
-                    </td>
-                    <td className="muted">{e.since}</td>
-                    <td className="muted">{i === 0 ? "Active now" : `${i * 3 + 2}h ago`}</td>
-                    <td><Badge tone="success" dot>Active</Badge></td>
-                    <td>
-                      <Btn variant="ghost" size="sm" iconRight="chevRight">Edit</Btn>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {tab === "roles" && (
-          <div style={{ padding: 16, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-            {DATA.ROLES.map((r, i) => {
-              const moduleCount = DATA.PERMISSIONS.filter(p => p[r.key] !== "-").length;
-              const userCount = [3, 1, 1, 1, 1, 1, 1, 1, 2][i];
-              return (
-                <div key={r.key} className="card" style={{ borderRadius: 8 }}>
-                  <div className="card-body" style={{ padding: 14 }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                      <div style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 600 }}>{r.label}</div>
-                      <button className="tb-iconbtn"><Icon name="moreV" size={13} /></button>
-                    </div>
-                    <div style={{ display: "flex", gap: 14, marginBottom: 12 }}>
-                      <div>
-                        <div className="subtle" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Users</div>
-                        <div className="mono" style={{ fontSize: 16, fontWeight: 600 }}>{userCount}</div>
-                      </div>
-                      <div>
-                        <div className="subtle" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Modules</div>
-                        <div className="mono" style={{ fontSize: 16, fontWeight: 600 }}>{moduleCount}</div>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                      {DATA.PERMISSIONS.filter(p => p[r.key] !== "-").slice(0, 4).map(p => (
-                        <Badge key={p.module}>{p.module.split(" ")[0]}</Badge>
-                      ))}
-                      {moduleCount > 4 && <Badge>+{moduleCount - 4}</Badge>}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      <EntityFormModal open={!!editPerm} onClose={() => setEditPerm(null)} title={editPerm ? `Edit permission` : ""} sub={editPerm ? `${editPerm.role} → ${editPerm.module}` : ""} submitLabel="Save change" saving={saving} error={error} onSubmit={savePermission}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {[
-            { v: "F", l: "Full access", d: "Create, edit, delete, approve" },
-            { v: "E", l: "Edit access", d: "Create and modify items" },
-            { v: "V", l: "View only", d: "Read records, no modifications" },
-            { v: "-", l: "No access", d: "Module is hidden for this role" },
-          ].map((o) => (
-            <label key={o.v} style={{
-              padding: 12, border: "1.5px solid var(--border)",
-              borderRadius: 8, display: "flex", gap: 10, cursor: "pointer",
-              ...(permLevel === o.v && { borderColor: "var(--primary)", background: "var(--primary-soft)" }),
-            }}>
-              <input type="radio" name="lv" checked={permLevel === o.v} onChange={() => setPermLevel(o.v)} style={{ accentColor: "var(--primary)" }} />
-              <div>
-                <div style={{ fontWeight: 500 }}>{o.l}</div>
-                <div className="subtle" style={{ fontSize: 11, marginTop: 2 }}>{o.d}</div>
-              </div>
-            </label>
-          ))}
-        </div>
-      </EntityFormModal>
-
-      <EntityFormModal open={addUser} onClose={() => setAddUser(false)} title="Add user" sub="Invite a person to the ERP (default password: sudarshan123)" wide submitLabel="Send invite" saving={saving} error={error} onSubmit={inviteUser}>
-        <FormGrid>
-          <FormField label="Full name"><FormInput value={userForm.values.name} onChange={(v) => userForm.setField("name", v)} /></FormField>
-          <FormField label="Email"><FormInput value={userForm.values.email} onChange={(v) => userForm.setField("email", v)} /></FormField>
-          <FormField label="Employee ID"><FormInput value={userForm.values.employeeId} onChange={(v) => userForm.setField("employeeId", v)} placeholder={nextEmployeeId(DATA.EMPLOYEES)} /></FormField>
-          <FormField label="Role">
-            <FormSelect value={userForm.values.role} onChange={(v) => userForm.setField("role", v)}>
-              {DATA.ROLES.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
-            </FormSelect>
-          </FormField>
-        </FormGrid>
-      </EntityFormModal>
-    </>
+      </Drawer>
+    </div>
   );
 };
 

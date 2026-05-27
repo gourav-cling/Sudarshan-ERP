@@ -50,6 +50,8 @@ function DataBanner({ meta }: { meta: BootstrapMeta }) {
   );
 }
 
+import { Spin } from "antd";
+
 export function PageShell({ children, loading, error, meta }: PageShellProps) {
   if (loading) {
     return (
@@ -58,11 +60,9 @@ export function PageShell({ children, loading, error, meta }: PageShellProps) {
           display: "grid",
           placeItems: "center",
           minHeight: 240,
-          color: "var(--fg-muted)",
-          fontSize: 13,
         }}
       >
-        Loading data…
+        <Spin size="large" tip="Loading data..." />
       </div>
     );
   }

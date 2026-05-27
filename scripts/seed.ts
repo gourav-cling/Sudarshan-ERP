@@ -7,13 +7,12 @@ import { seedEntities } from "../src/lib/db-entities";
 import { seedUsers } from "../src/lib/seed-users";
 import { connectDB, isDbConfigured } from "../src/lib/mongodb";
 
-config({ path: ".env.local" });
 config({ path: ".env" });
 
 async function main() {
   if (!isDbConfigured()) {
     console.error(
-      "MONGODB_URI is not set. Copy .env.example to .env.local (or .env) and set MONGODB_URI."
+      "MONGODB_URI is not set. Copy .env.example to .env.local (or .env) and set MONGODB_URI.",
     );
     process.exit(1);
   }

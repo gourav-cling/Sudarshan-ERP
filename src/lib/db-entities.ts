@@ -59,10 +59,7 @@ export async function loadErpDataFromDb(): Promise<ErpData> {
 
 export async function seedEntities(): Promise<{ seeded: boolean; counts: Record<string, number> }> {
   await connectDB();
-  const existing = await EntityStore.countDocuments();
-  if (existing > 0) {
-    return { seeded: false, counts: {} };
-  }
+  await EntityStore.deleteMany({});
 
   const counts: Record<string, number> = {};
   for (const [field, key] of Object.entries(KEY_MAP)) {

@@ -149,7 +149,7 @@ const NotifsPanel = ({
   );
 };
 
-function ErpAppInner({ segments }: { segments?: string[] }) {
+function ErpAppInner({ segments, children }: { segments?: string[], children?: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { data, meta, loading, error } = useErpData();
@@ -265,7 +265,7 @@ function ErpAppInner({ segments }: { segments?: string[] }) {
         />
         <div className="content">
           <PageShell loading={loading} error={error} meta={meta}>
-            {renderErpRoute(route, navigate)}
+            {children ? children : renderErpRoute(route, navigate)}
           </PageShell>
         </div>
         <NotifsPanel
@@ -278,10 +278,10 @@ function ErpAppInner({ segments }: { segments?: string[] }) {
   );
 }
 
-export function ErpApp({ segments }: { segments?: string[] }) {
+export function ErpApp({ segments, children }: { segments?: string[], children?: React.ReactNode }) {
   return (
     <ErpDataProvider>
-      <ErpAppInner segments={segments} />
+      <ErpAppInner segments={segments}>{children}</ErpAppInner>
     </ErpDataProvider>
   );
 }

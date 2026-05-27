@@ -7,9 +7,7 @@ const DEFAULT_PASSWORD = "sudarshan123";
 
 export async function seedUsers() {
   await connectDB();
-  const count = await User.countDocuments();
-  if (count > 0) return { seeded: false, count };
-
+  await User.deleteMany({});
   const hash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
   await User.insertMany(
     SEED_DATA.USERS.map((u) => ({
