@@ -1,0 +1,148 @@
+/* ============================================================
+   SUDARSHAN ERP — DESIGN TOKENS
+   Light, modern, Linear/Vercel-inspired
+   ============================================================ */
+
+:root {
+  /* Surface */
+  --bg: #fbfbfa;
+  --bg-elev: #ffffff;
+  --bg-sunken: #f4f4f1;
+  --bg-hover: #f0f0ec;
+
+  /* Foreground */
+  --fg: #0e1116;
+  --fg-2: #2c2f36;
+  --fg-muted: #5a5e66;
+  --fg-subtle: #8a8e96;
+  --fg-faint: #b6b9be;
+
+  /* Borders */
+  --border: #ececea;
+  --border-strong: #dcdcd8;
+  --border-focus: #374d95;
+
+  /* Brand */
+  --primary: #374d95;
+  --primary-hover: #2c3e7c;
+  --primary-active: #243266;
+  --primary-fg: #ffffff;
+  --primary-soft: #eef1fa;
+  --primary-soft-2: #dfe4f4;
+
+  --secondary: #e8a901;
+  --secondary-hover: #cc9501;
+  --secondary-fg: #1a1308;
+  --secondary-soft: #fdf3d4;
+  --secondary-soft-2: #fae8a8;
+
+  /* Semantic */
+  --success: #168a52;
+  --success-soft: #e3f4ea;
+  --warning: #b86a00;
+  --warning-soft: #fbecd3;
+  --danger:  #c41e3a;
+  --danger-soft: #fbe4e7;
+  --info:    #1965c0;
+  --info-soft: #e4eef9;
+
+  /* Type */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: "Inter Tight", "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-base: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 24px;
+  --fs-3xl: 32px;
+  --fs-4xl: 40px;
+  --fs-5xl: 56px;
+
+  /* Radius */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-full: 999px;
+
+  /* Shadow */
+  --shadow-xs: 0 1px 0 rgba(14,17,22,0.04);
+  --shadow-sm: 0 1px 2px rgba(14,17,22,0.05), 0 1px 0 rgba(14,17,22,0.03);
+  --shadow-md: 0 4px 12px rgba(14,17,22,0.06), 0 1px 2px rgba(14,17,22,0.04);
+  --shadow-lg: 0 12px 32px rgba(14,17,22,0.10), 0 2px 4px rgba(14,17,22,0.05);
+  --shadow-pop: 0 24px 60px rgba(14,17,22,0.14), 0 4px 8px rgba(14,17,22,0.06);
+
+  /* Layout */
+  --sidebar-w: 248px;
+  --sidebar-collapsed-w: 56px;
+  --topbar-h: 56px;
+
+  /* Easing */
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv11", "ss01", "ss03";
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-faint);
+}
+
+/* Selection */
+::selection {
+  background: var(--primary-soft-2);
+  color: var(--primary-active);
+}

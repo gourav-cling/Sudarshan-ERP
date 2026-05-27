@@ -1,7 +1,6 @@
+/** PostCSS — Sudarshan ERP uses plain CSS (tokens.css + app.css). */
 const config = {
-  plugins: {
-    "@tailwindcss/postcss": {},
-  },
+  plugins: {},
 };
 
 export default config;
