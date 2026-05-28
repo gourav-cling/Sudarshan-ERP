@@ -4,7 +4,13 @@ import { getIronSession } from "iron-session";
 import { sessionOptions, type SessionData } from "@/lib/session";
 
 const PUBLIC_PATHS = ["/login", "/forgot", "/mobile"];
-const PUBLIC_API = ["/api/auth/login", "/api/auth/forgot", "/api/seed", "/api/bootstrap"];
+const PUBLIC_API = [
+  "/api/auth/login",
+  "/api/auth/forgot",
+  "/api/seed",
+  "/api/bootstrap",
+  "/api/integrations/biometric",
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -18,7 +24,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+  if (
+    PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+  ) {
     return NextResponse.next();
   }
 
@@ -31,15 +39,26 @@ export async function middleware(request: NextRequest) {
 
   if (pathname.startsWith("/api/")) {
     const res = NextResponse.next();
-    const session = await getIronSession<SessionData>(request, res, sessionOptions);
+    const session = await getIronSession<SessionData>(
+      request,
+      res,
+      sessionOptions,
+    );
     if (!session.isLoggedIn) {
-      return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { data: null, error: "Unauthorized" },
+        { status: 401 },
+      );
     }
     return res;
   }
 
   const res = NextResponse.next();
-  const session = await getIronSession<SessionData>(request, res, sessionOptions);
+  const session = await getIronSession<SessionData>(
+    request,
+    res,
+    sessionOptions,
+  );
 
   if (!session.isLoggedIn) {
     const login = new URL("/login", request.url);

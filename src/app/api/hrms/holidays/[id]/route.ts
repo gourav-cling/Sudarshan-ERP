@@ -1,0 +1,35 @@
+import { connectDB } from "@/lib/db";
+import { ok, fail } from "@/lib/api-response";
+import Holiday from "@/lib/models/Holiday";
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await connectDB();
+    const { id } = await params;
+    const h = await Holiday.findByIdAndDelete(id);
+    if (!h) return fail("Holiday not found", 404);
+    return ok({ deleted: true });
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Failed", 500);
+  }
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await connectDB();
+    const { id } = await params;
+    const body = await request.json().catch(() => null);
+    if (!body) return fail("Invalid body", 400);
+    const h = await Holiday.findByIdAndUpdate(id, { $set: body }, { new: true });
+    if (!h) return fail("Holiday not found", 404);
+    return ok({ holiday: h });
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Failed", 500);
+  }
+}

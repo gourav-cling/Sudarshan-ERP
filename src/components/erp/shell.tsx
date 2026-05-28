@@ -62,7 +62,19 @@ const NAV = [
     label: "People",
     items: [
       { id: "/hrms/employees",   label: "Employees",   icon: "user" },
-      { id: "/hrms/attendance",  label: "Attendance",  icon: "clock" },
+      {
+        id: "people/hr-management",
+        label: "HR Management",
+        icon: "user",
+        items: [
+          { id: "/hrms/attendance",    label: "Attendance",    icon: "clock" },
+          { id: "/hrms/reports",       label: "Reports",       icon: "chart" },
+          { id: "/hrms/leave",         label: "Leave",         icon: "calendar" },
+          { id: "/hrms/leave/policy",  label: "Leave Policy",  icon: "layout" },
+          { id: "/hrms/holidays",      label: "Holidays",      icon: "calendar" },
+          { id: "/hrms/salary",        label: "Salary",        icon: "money" },
+        ],
+      },
       { id: "/hrms/payroll",     label: "Payroll",     icon: "money" },
     ],
   },
@@ -79,7 +91,9 @@ const NAV = [
 
 const Sidebar = ({ route, navigate, company, onCompanyClick, badgeMap = {} }) => {
   const [collapsed, setCollapsed] = useState({});
+  const [collapsedGroups, setCollapsedGroups] = useState({});
   const toggle = (id) => setCollapsed((c) => ({ ...c, [id]: !c[id] }));
+  const toggleGroup = (id) => setCollapsedGroups((c) => ({ ...c, [id]: !c[id] }));
 
   return (
     <aside className="sidebar">
@@ -119,6 +133,55 @@ const Sidebar = ({ route, navigate, company, onCompanyClick, badgeMap = {} }) =>
             </div>
             <div className="sb-section-items">
               {section.items.map((item) => {
+                const isGroup = item && typeof item === "object" && Array.isArray(item.items);
+                if (isGroup) {
+                  const groupHasActiveChild = item.items.some(
+                    (child) => route === child.id || (route && route.startsWith(child.id))
+                  );
+                  const isGroupCollapsed = !!collapsedGroups[item.id] && !groupHasActiveChild;
+                  return (
+                    <div key={item.id} className={`sb-item-group ${groupHasActiveChild ? "active" : ""}`}>
+                      <div
+                        className={`sb-item ${groupHasActiveChild ? "active" : ""}`}
+                        onClick={() => toggleGroup(item.id)}
+                      >
+                        <span className="sb-item-icon">
+                          <Icon name={item.icon || "user"} size={15} />
+                        </span>
+                        <span className="sb-item-label">{item.label}</span>
+                        <span className="sb-item-right">
+                          <Icon name="chevDown" size={11} className={`chev ${isGroupCollapsed ? "" : "open"}`} />
+                        </span>
+                      </div>
+                      {!isGroupCollapsed && (
+                        <div className="sb-subitems">
+                          {item.items.map((child) => {
+                            const isActive =
+                              route === child.id || (route && route.startsWith(child.id));
+                            const badges = badgeMap[child.id];
+                            return (
+                              <div
+                                key={child.id}
+                                className={`sb-item sub ${isActive ? "active" : ""}`}
+                                onClick={() => navigate(child.id)}
+                              >
+                                <span className="sb-item-icon">
+                                  <Icon name={child.icon} size={15} />
+                                </span>
+                                <span className="sb-item-label">{child.label}</span>
+                                {badges?.badge && <span className="sb-item-badge">{badges.badge}</span>}
+                                {badges?.badgeAlert && (
+                                  <span className="sb-item-badge alert">{badges.badgeAlert}</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
                 const isActive = route === item.id || (route && route.startsWith(item.id));
                 const badges = badgeMap[item.id];
                 return (
@@ -179,7 +242,12 @@ const breadcrumbsFor = (route) => {
     "/production":           ["Operations", "Production"],
     "/dispatch":             ["Operations", "Dispatch & Tracking"],
     "/hrms/employees":         ["People", "Employees"],
-    "/hrms/attendance":        ["People", "Attendance"],
+    "/hrms/attendance":        ["People", "HR Management", "Attendance"],
+    "/hrms/reports":           ["People", "HR Management", "Reports"],
+    "/hrms/leave":             ["People", "HR Management", "Leave"],
+    "/hrms/leave/policy":      ["People", "HR Management", "Leave Policy"],
+    "/hrms/holidays":          ["People", "HR Management", "Holidays"],
+    "/hrms/salary":            ["People", "HR Management", "Salary"],
     "/hrms/payroll":           ["People", "Payroll"],
     "/reports":              ["System", "Reports"],
     "/users":                ["System", "User Management"],
