@@ -10,7 +10,7 @@ import { Sidebar, Topbar } from "@/components/layout";
 import { Btn } from "@/components/ui";
 import { Icon } from "@/components/erp/icons";
 import { renderErpRoute } from "@/components/erp/render-route";
-import { pathToRoute } from "@/lib/erp-routes";
+import { ERP_ROUTES, pathToRoute } from "@/lib/erp-routes";
 import { PageShell } from "@/components/layout/page-shell";
 import { sidebarBadges } from "@/lib/erp-stats";
 
@@ -159,9 +159,12 @@ function ErpAppInner({ segments, children }: { segments?: string[], children?: R
     pathname === "/forgot" ||
     pathname === "/select-company"
       ? pathname
-      : pathToRoute(
-          segments ?? pathname.replace(/^\//, "").split("/").filter(Boolean)
-        );
+      : pathname.startsWith("/hrms/") ||
+          (ERP_ROUTES as readonly string[]).includes(pathname)
+        ? pathname
+        : pathToRoute(
+            segments ?? pathname.replace(/^\//, "").split("/").filter(Boolean)
+          );
   const [company, setCompany] = useState<Company | null>(null);
   const [notifsOpen, setNotifsOpen] = useState(false);
   const [sessionUser, setSessionUser] = useState<{

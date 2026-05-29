@@ -44,6 +44,17 @@ export async function POST(request: Request) {
   if ("error" in locRes) return fail(locRes.error, 400);
 
   const notes = typeof (body as any).notes === "string" ? (body as any).notes.trim() : "";
+  const workSite =
+    (body as any).workSite === "field" ? "field" : "office";
+  const sourceRaw = (body as any).source;
+  const source =
+    sourceRaw === "mobile" || sourceRaw === "machine" ? sourceRaw : "web";
+  const punchNotes = [
+    notes,
+    workSite === "field" ? "Field" : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   try {
     await connectDB();
@@ -80,9 +91,9 @@ export async function POST(request: Request) {
       userEmail: email,
       punchType: "in",
       punchedAt: now,
-      source: "web",
+      source,
       location,
-      notes: notes || undefined,
+      notes: punchNotes || undefined,
     });
 
     return ok({ punch: created }, 201);

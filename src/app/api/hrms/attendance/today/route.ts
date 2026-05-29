@@ -2,6 +2,7 @@ import { connectDB } from "@/lib/db";
 import Employee from "@/lib/models/Employee";
 import AttendancePunch from "@/lib/models/AttendancePunch";
 import { ok, fail } from "@/lib/api-response";
+import { getSession } from "@/lib/session";
 import { enrichLocation, shortAddressFromLocation, type GeoLocation } from "@/lib/reverse-geocode";
 
 function formatTime(d: Date): string {
@@ -30,9 +31,17 @@ function needsGeocode(loc: any): loc is { lat: number; lng: number } {
   return !loc.address?.trim() && !loc.city?.trim() && !loc.state?.trim();
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await connectDB();
+
+    const url = new URL(request.url);
+    const mineOnly = url.searchParams.get("mine") === "1";
+    const session = mineOnly ? await getSession() : null;
+    if (mineOnly && (!session?.isLoggedIn || !session.user?.email)) {
+      return fail("Unauthorized", 401);
+    }
+    const sessionEmail = session?.user?.email?.trim().toLowerCase();
 
     const now = new Date();
     const start = new Date(now); start.setHours(0, 0, 0, 0);
@@ -160,7 +169,27 @@ export async function GET() {
       byPerson.set(key, cur);
     }
 
-    const rows = Array.from(byPerson.values()).map((p) => {
+    let people = Array.from(byPerson.values());
+    if (mineOnly && sessionEmail) {
+      const sessionEmployee = await Employee.findOne({
+        $or: [
+          { officialEmail: sessionEmail },
+          { personalEmail: sessionEmail },
+        ],
+      })
+        .select({ employeeId: 1 })
+        .lean();
+      const myEmpId = sessionEmployee?.employeeId
+        ? String(sessionEmployee.employeeId)
+        : null;
+      people = people.filter(
+        (p) =>
+          (myEmpId && p.employeeId === myEmpId) ||
+          (p.userEmail && p.userEmail.toLowerCase() === sessionEmail)
+      );
+    }
+
+    const rows = people.map((p) => {
       const employee = p.employeeId
         ? byEmployeeId.get(String(p.employeeId))
         : p.userEmail ? byEmail.get(String(p.userEmail).toLowerCase()) : null;

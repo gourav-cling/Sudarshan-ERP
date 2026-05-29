@@ -69,10 +69,19 @@ const NAV = [
         items: [
           { id: "/hrms/attendance",    label: "Attendance",    icon: "clock" },
           { id: "/hrms/reports",       label: "Reports",       icon: "chart" },
-          { id: "/hrms/leave",         label: "Leave",         icon: "calendar" },
-          { id: "/hrms/leave/policy",  label: "Leave Policy",  icon: "layout" },
-          { id: "/hrms/holidays",      label: "Holidays",      icon: "calendar" },
+          { id: "/hrms/reports/late-early", label: "Late / Early going", icon: "clock" },
           { id: "/hrms/salary",        label: "Salary",        icon: "money" },
+        ],
+      },
+      {
+        id: "people/leave-policy",
+        label: "Leave & Policy",
+        icon: "calendar",
+        items: [
+          { id: "/hrms/leave/record",   label: "Leave record",   icon: "chart" },
+          { id: "/hrms/leave/apply",    label: "Apply leave",    icon: "plus" },
+          { id: "/hrms/leave/approval", label: "Leave approval", icon: "check" },
+          { id: "/hrms/leave/admin",    label: "Leave admin",    icon: "layout" },
         ],
       },
       { id: "/hrms/payroll",     label: "Payroll",     icon: "money" },
@@ -136,7 +145,9 @@ const Sidebar = ({ route, navigate, company, onCompanyClick, badgeMap = {} }) =>
                 const isGroup = item && typeof item === "object" && Array.isArray(item.items);
                 if (isGroup) {
                   const groupHasActiveChild = item.items.some(
-                    (child) => route === child.id || (route && route.startsWith(child.id))
+                    (child) =>
+                      route === child.id ||
+                      route?.startsWith(`${child.id}/`)
                   );
                   const isGroupCollapsed = !!collapsedGroups[item.id] && !groupHasActiveChild;
                   return (
@@ -157,7 +168,8 @@ const Sidebar = ({ route, navigate, company, onCompanyClick, badgeMap = {} }) =>
                         <div className="sb-subitems">
                           {item.items.map((child) => {
                             const isActive =
-                              route === child.id || (route && route.startsWith(child.id));
+                              route === child.id ||
+                              route?.startsWith(`${child.id}/`);
                             const badges = badgeMap[child.id];
                             return (
                               <div
@@ -244,10 +256,18 @@ const breadcrumbsFor = (route) => {
     "/hrms/employees":         ["People", "Employees"],
     "/hrms/attendance":        ["People", "HR Management", "Attendance"],
     "/hrms/reports":           ["People", "HR Management", "Reports"],
-    "/hrms/leave":             ["People", "HR Management", "Leave"],
-    "/hrms/leave/policy":      ["People", "HR Management", "Leave Policy"],
-    "/hrms/holidays":          ["People", "HR Management", "Holidays"],
+    "/hrms/reports/late-early": ["People", "HR Management", "Late / Early going"],
+    "/hrms/leave":              ["People", "Leave & Policy", "Leave record"],
+    "/hrms/leave/record":       ["People", "Leave & Policy", "Leave record"],
+    "/hrms/leave/apply":        ["People", "Leave & Policy", "Apply leave"],
+    "/hrms/leave/approval":     ["People", "Leave & Policy", "Leave approval"],
+    "/hrms/leave/admin":        ["People", "Leave & Policy", "Leave admin"],
+    "/hrms/leave/policy":       ["People", "Leave & Policy", "Leave admin"],
+    "/hrms/holidays":           ["People", "Leave & Policy", "Leave admin"],
     "/hrms/salary":            ["People", "HR Management", "Salary"],
+    "/hrms/salary/monthly":    ["People", "HR Management", "Monthly salary"],
+    "/hrms/salary/bulk":       ["People", "HR Management", "Payroll bulk view"],
+    "/hrms/salary/daily-wage": ["People", "HR Management", "Daily wage payroll"],
     "/hrms/payroll":           ["People", "Payroll"],
     "/reports":              ["System", "Reports"],
     "/users":                ["System", "User Management"],

@@ -179,7 +179,33 @@ export async function GET(request: Request) {
       totalOvertime:  round2(summary.reduce((a,s) => a + s.totalOvertime,  0)),
     };
 
-    return ok({ from: fromD.toISOString(), to: toD.toISOString(), kpi, summary, daily });
+    let gpsPunches = 0;
+    let biometricPunches = 0;
+    let mobilePunches = 0;
+    for (const p of punches) {
+      if (p.source === "machine") biometricPunches++;
+      else if (p.source === "mobile") mobilePunches++;
+      else gpsPunches++;
+    }
+    const totalPunchEvents = punches.length || 1;
+    const gpsSummary = {
+      gpsPunches: gpsPunches + mobilePunches,
+      biometricPunches,
+      mobilePunches,
+      gpsPercent: Math.round(((gpsPunches + mobilePunches) / totalPunchEvents) * 100),
+    };
+
+    const workingDays = allDays.filter((d) => new Date(d).getDay() !== 0).length;
+
+    return ok({
+      from: fromD.toISOString(),
+      to: toD.toISOString(),
+      workingDays,
+      kpi,
+      gpsSummary,
+      summary,
+      daily,
+    });
   } catch (e) {
     return fail(e instanceof Error ? e.message : "Report failed", 500);
   }
